@@ -132,7 +132,4 @@ function Invoke-PodeInternalTimer {
     catch {
         $_ | Write-PodeErrorLog
     }
-    finally {
-        Invoke-PodeGC
-    }
 }

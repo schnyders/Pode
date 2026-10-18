@@ -340,7 +340,6 @@ function Get-PodeScheduleScriptBlock {
         }
         finally {
             Reset-PodeRunspaceName
-            Invoke-PodeGC
         }
     }
 }

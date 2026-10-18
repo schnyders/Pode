@@ -339,7 +339,6 @@ function Get-PodeTaskScriptBlock {
         finally {
             $process.CompletedTime = [datetime]::UtcNow
             Reset-PodeRunspaceName
-            Invoke-PodeGC
         }
     }
 }
