@@ -8,7 +8,11 @@ namespace Pode.Utilities.Structures
 {
     public class PodeItemQueue<T> : IDisposable
     {
-        private BlockingCollection<T> Items = default;
+        // the queued items, and a semaphore counting how many are available - waiting on the semaphore
+        // asynchronously means that idle callers of GetAsync don't each block a thread pool thread
+        private ConcurrentQueue<T> Items = default;
+        private SemaphoreSlim ItemsAvailable = default;
+        private CancellationTokenSource DisposeTokenSource = default;
         private List<T> ProcessingItems = default;
         private readonly bool TrackProcessing = true;
         private bool IsDisposed = false;
@@ -19,7 +23,9 @@ namespace Pode.Utilities.Structures
 
         public PodeItemQueue(bool trackProcessing = true)
         {
-            Items = new BlockingCollection<T>();
+            Items = new ConcurrentQueue<T>();
+            ItemsAvailable = new SemaphoreSlim(0);
+            DisposeTokenSource = new CancellationTokenSource();
             TrackProcessing = trackProcessing;
             ProcessingItems = new List<T>();
         }
@@ -31,21 +37,39 @@ namespace Pode.Utilities.Structures
                 return default;
             }
 
-            var item = Items.Take(cancellationToken == default ? CancellationToken.None : cancellationToken);
-            AddProcessing(item);
-            return item;
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DisposeTokenSource.Token))
+            {
+                while (true)
+                {
+                    ItemsAvailable.Wait(linked.Token);
+                    if (Items.TryDequeue(out var item))
+                    {
+                        AddProcessing(item);
+                        return item;
+                    }
+                }
+            }
         }
 
-        public Task<T> GetAsync(CancellationToken cancellationToken = default)
+        public async Task<T> GetAsync(CancellationToken cancellationToken = default)
         {
             if (IsDisposed)
             {
-                return Task.FromResult(default(T));
+                return default;
             }
 
-            return cancellationToken == default
-                ? Task.Factory.StartNew(() => Get())
-                : Task.Factory.StartNew(() => Get(cancellationToken), cancellationToken);
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, DisposeTokenSource.Token))
+            {
+                while (true)
+                {
+                    await ItemsAvailable.WaitAsync(linked.Token).ConfigureAwait(false);
+                    if (Items.TryDequeue(out var item))
+                    {
+                        AddProcessing(item);
+                        return item;
+                    }
+                }
+            }
         }
 
         public void Add(T item)
@@ -55,10 +79,8 @@ namespace Pode.Utilities.Structures
                 return;
             }
 
-            lock (Items)
-            {
-                Items.Add(item);
-            }
+            Items.Enqueue(item);
+            ItemsAvailable.Release();
         }
 
         public void AddProcessing(T item)
@@ -106,8 +128,13 @@ namespace Pode.Utilities.Structures
 
             IsDisposed = true;
 
-            // dispose the queue
-            Items.Dispose();
+            // cancel any callers still waiting for an item, and dispose the queue
+            DisposeTokenSource.Cancel();
+            DisposeTokenSource.Dispose();
+            DisposeTokenSource = null;
+
+            ItemsAvailable.Dispose();
+            ItemsAvailable = null;
             Items = null;
 
             // clear the processing items
