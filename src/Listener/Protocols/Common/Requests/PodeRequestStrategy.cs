@@ -68,6 +68,17 @@ namespace Pode.Protocols.Common.Requests
         public abstract bool Validate(byte[] bytes);
 
         /// <summary>
+        /// Cheap check, using only the number of buffered bytes, to see if more content is still required
+        /// before the request can be validated. This avoids copying the buffered bytes on every read.
+        /// </summary>
+        /// <param name="bufferedLength">The number of bytes currently buffered.</param>
+        /// <returns>True if more content is definitely required, otherwise false.</returns>
+        public virtual bool NeedsMoreContent(long bufferedLength)
+        {
+            return false;
+        }
+
+        /// <summary>
         /// Resets the request state. Can be overridden by derived classes.
         /// </summary>
         /// <param name="force">Indicates whether to force the reset, even if the request is not marked as resettable or processable.</param>

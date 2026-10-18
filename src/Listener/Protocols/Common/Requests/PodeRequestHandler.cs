@@ -276,13 +276,20 @@ namespace Pode.Protocols.Common.Requests
                         await BufferStream.WriteAsync(localBuffer, 0, read, cancellationToken).ConfigureAwait(false);
 #endif
 
-                        // Validate and parse the data if available
-                        if (Socket.Available > 0 || !Strategy.Validate(BufferStream.ToArray()))
+                        // Wait for more data if it's available, or if we know more content is still required
+                        if (Socket.Available > 0 || Strategy.NeedsMoreContent(BufferStream.Length))
                         {
                             continue;
                         }
 
-                        if (!await Strategy.Parse(BufferStream.ToArray(), cancellationToken).ConfigureAwait(false))
+                        // Validate and parse the data, copying the buffered bytes only once
+                        var bytes = BufferStream.ToArray();
+                        if (!Strategy.Validate(bytes))
+                        {
+                            continue;
+                        }
+
+                        if (!await Strategy.Parse(bytes, cancellationToken).ConfigureAwait(false))
                         {
                             BufferStream.SetLength(0);
                             continue;

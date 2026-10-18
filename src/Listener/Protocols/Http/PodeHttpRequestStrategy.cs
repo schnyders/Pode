@@ -143,6 +143,11 @@ namespace Pode.Protocols.Http
             _body = string.Empty;
         }
 
+        public override bool NeedsMoreContent(long bufferedLength)
+        {
+            return AwaitingContent && bufferedLength < (ContentLength - BodyStream.Length);
+        }
+
         public override bool Validate(byte[] bytes)
         {
             // we need more bytes!
