@@ -223,12 +223,15 @@ namespace Pode.Protocols.Http
             var bodyIndex = 0;
             if (!AwaitingContent)
             {
-                var content = PodeHelpers.Encoding.GetString(bytes, 0, bytes.Length);
+                // only decode the request line and headers, not the body - this avoids
+                // converting large payloads into strings, and gives us the exact byte
+                // index of where the body starts (even for non-ASCII header values)
+                bodyIndex = IndexOfHeadersEnd(bytes, newline);
+                var content = PodeHelpers.Encoding.GetString(bytes, 0, bodyIndex);
                 var reqLines = content.Split(new string[] { newline }, StringSplitOptions.None);
                 content = string.Empty;
 
-                bodyIndex = ParseHeaders(reqLines);
-                bodyIndex = reqLines.Take(bodyIndex).Sum(x => x.Length) + (bodyIndex * newline.Length);
+                ParseHeaders(reqLines);
                 reqLines = default;
             }
 
@@ -250,7 +253,46 @@ namespace Pode.Protocols.Http
             return !AwaitingContent;
         }
 
-        private int ParseHeaders(string[] reqLines)
+        /// <summary>
+        /// Finds the index of the first byte after the headers (the double newline), which is where the body starts.
+        /// </summary>
+        /// <param name="bytes">The raw request bytes.</param>
+        /// <param name="newline">The newline being used by the request.</param>
+        /// <returns>The index where the body starts, or the length of the bytes if there's no end of headers.</returns>
+        private static int IndexOfHeadersEnd(byte[] bytes, string newline)
+        {
+            var terminator = newline == PodeHelpers.NEW_LINE
+                ? HEADERS_END_BYTES
+                : HEADERS_END_UNIX_BYTES;
+
+            var index = Array.IndexOf(bytes, terminator[0]);
+            while (index != -1 && index <= bytes.Length - terminator.Length)
+            {
+                var found = true;
+                for (var i = 1; i < terminator.Length; i++)
+                {
+                    if (bytes[index + i] != terminator[i])
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+
+                if (found)
+                {
+                    return index + terminator.Length;
+                }
+
+                index = Array.IndexOf(bytes, terminator[0], index + 1);
+            }
+
+            return bytes.Length;
+        }
+
+        private static readonly byte[] HEADERS_END_BYTES = PodeHelpers.Encoding.GetBytes(PodeHelpers.NEW_LINE + PodeHelpers.NEW_LINE);
+        private static readonly byte[] HEADERS_END_UNIX_BYTES = PodeHelpers.Encoding.GetBytes(PodeHelpers.NEW_LINE_UNIX + PodeHelpers.NEW_LINE_UNIX);
+
+        private void ParseHeaders(string[] reqLines)
         {
             // reset raw body
             RawBody = default;
@@ -289,7 +331,6 @@ namespace Pode.Protocols.Http
 
             // headers
             Headers = new Hashtable(StringComparer.InvariantCultureIgnoreCase);
-            var bodyIndex = 0;
             var h_index = 0;
             var h_line = string.Empty;
             var h_name = string.Empty;
@@ -300,7 +341,6 @@ namespace Pode.Protocols.Http
                 h_line = reqLines[i].Trim();
                 if (string.IsNullOrWhiteSpace(h_line))
                 {
-                    bodyIndex = i + 1;
                     break;
                 }
 
@@ -408,9 +448,6 @@ namespace Pode.Protocols.Http
             // keep-alive?
             IsKeepAlive = Headers.ContainsKey("Connection")
                 && Headers["Connection"]?.ToString().Equals("keep-alive", StringComparison.InvariantCultureIgnoreCase) == true;
-
-            // return index where body starts in req
-            return bodyIndex;
         }
 
         private async Task ParseBody(byte[] bytes, string newline, int start, CancellationToken cancellationToken)
