@@ -170,7 +170,6 @@ namespace Pode.Protocols.Http.Client
             Semaphore?.Dispose();
             Semaphore = null;
 
-            GC.Collect();
             GC.SuppressFinalize(this);
         }
     }
