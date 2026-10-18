@@ -245,7 +245,12 @@ function Write-PodeTextResponse {
             $lengths = @()
             $size = $Bytes.Length
 
-            $Bytes = @(foreach ($range in $WebEvent.Ranges) {
+            # copy the ranges into a single buffer - slicing the array via PowerShell's range
+            # operator boxes every byte, which is very slow and memory hungry for large files
+            $rangeStream = [System.IO.MemoryStream]::new()
+
+            try {
+                foreach ($range in $WebEvent.Ranges) {
                     # ensure range not invalid
                     if (([int]$range.Start -lt 0) -or ([int]$range.Start -ge $size) -or ([int]$range.End -lt 0)) {
                         Set-PodeResponseStatus -Code 416 -NoErrorPage
@@ -254,7 +259,7 @@ function Write-PodeTextResponse {
 
                     # skip start bytes only
                     if ([string]::IsNullOrEmpty($range.End)) {
-                        $Bytes[$range.Start..($size - 1)]
+                        $rangeStream.Write($Bytes, [int]$range.Start, ($size - [int]$range.Start))
                         $lengths += "$($range.Start)-$($size - 1)/$($size)"
                     }
 
@@ -265,7 +270,7 @@ function Write-PodeTextResponse {
                         }
 
                         if ([int]$range.End -gt 0) {
-                            $Bytes[$($size - $range.End)..($size - 1)]
+                            $rangeStream.Write($Bytes, ($size - [int]$range.End), [int]$range.End)
                             $lengths += "$($size - $range.End)-$($size - 1)/$($size)"
                         }
                         else {
@@ -275,15 +280,21 @@ function Write-PodeTextResponse {
 
                     # normal range
                     else {
-                        if ([int]$range.End -ge $size) {
+                        if (([int]$range.End -ge $size) -or ([int]$range.End -lt [int]$range.Start)) {
                             Set-PodeResponseStatus -Code 416 -NoErrorPage
                             return
                         }
 
-                        $Bytes[$range.Start..$range.End]
+                        $rangeStream.Write($Bytes, [int]$range.Start, ([int]$range.End - [int]$range.Start + 1))
                         $lengths += "$($range.Start)-$($range.End)/$($size)"
                     }
-                })
+                }
+
+                $Bytes = $rangeStream.ToArray()
+            }
+            finally {
+                $rangeStream.Dispose()
+            }
 
             Set-PodeHeader -Name 'Content-Range' -Value "bytes $($lengths -join ', ')"
             if ($StatusCode -eq 200) {

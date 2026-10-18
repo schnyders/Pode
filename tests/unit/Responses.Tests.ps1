@@ -413,6 +413,73 @@ InModuleScope -ModuleName 'Pode' {
         It 'Does nothing when we have no response' {
             Write-PodeTextResponse -Value 'value' | Out-Null
         }
+
+        Context 'Range requests' {
+            BeforeEach {
+                $PodeContext = @{ Server = @{ Web = @{ Compression = @{ Enabled = $false } } } }
+                $script:rangeHeaders = @{}
+                $script:rangeStatus = $null
+                Mock Set-PodeHeader { $script:rangeHeaders[$Name] = $Value }
+                Mock Set-PodeResponseStatus { $script:rangeStatus = $Code }
+
+                $WebEvent = @{
+                    Streamed = $true
+                    Ranges   = $null
+                    Response = [pscustomobject]@{
+                        StatusCode      = 200
+                        ContentType     = $null
+                        ContentLength64 = 0
+                        Sent            = $false
+                        OutputStream    = [System.IO.MemoryStream]::new()
+                    }
+                }
+
+                $bytes = [byte[]](0..99)
+            }
+
+            It 'Writes a normal range' {
+                $WebEvent.Ranges = @(@{ Start = '10'; End = '19' })
+                Write-PodeTextResponse -Bytes $bytes
+                $WebEvent.Response.OutputStream.ToArray() | Should -Be ([byte[]](10..19))
+                $script:rangeHeaders['Content-Range'] | Should -Be 'bytes 10-19/100'
+                $script:rangeStatus | Should -Be 206
+            }
+
+            It 'Writes a range with only a start' {
+                $WebEvent.Ranges = @(@{ Start = '90'; End = '' })
+                Write-PodeTextResponse -Bytes $bytes
+                $WebEvent.Response.OutputStream.ToArray() | Should -Be ([byte[]](90..99))
+                $script:rangeHeaders['Content-Range'] | Should -Be 'bytes 90-99/100'
+            }
+
+            It 'Writes a suffix range' {
+                $WebEvent.Ranges = @(@{ Start = ''; End = '5' })
+                Write-PodeTextResponse -Bytes $bytes
+                $WebEvent.Response.OutputStream.ToArray() | Should -Be ([byte[]](95..99))
+                $script:rangeHeaders['Content-Range'] | Should -Be 'bytes 95-99/100'
+            }
+
+            It 'Writes multiple ranges' {
+                $WebEvent.Ranges = @(@{ Start = '0'; End = '1' }, @{ Start = '50'; End = '51' })
+                Write-PodeTextResponse -Bytes $bytes
+                $WebEvent.Response.OutputStream.ToArray() | Should -Be ([byte[]](0, 1, 50, 51))
+                $script:rangeHeaders['Content-Range'] | Should -Be 'bytes 0-1/100, 50-51/100'
+            }
+
+            It 'Returns 416 when the end is beyond the content' {
+                $WebEvent.Ranges = @(@{ Start = '10'; End = '100' })
+                Write-PodeTextResponse -Bytes $bytes
+                $script:rangeStatus | Should -Be 416
+                $WebEvent.Response.OutputStream.Length | Should -Be 0
+            }
+
+            It 'Returns 416 when the end is before the start' {
+                $WebEvent.Ranges = @(@{ Start = '20'; End = '10' })
+                Write-PodeTextResponse -Bytes $bytes
+                $script:rangeStatus | Should -Be 416
+                $WebEvent.Response.OutputStream.Length | Should -Be 0
+            }
+        }
     }
 
     Describe 'Write-PodeFileResponse' {
