@@ -385,7 +385,7 @@ function Enable-PodeLogRequestType {
                 $params['LogHeader'] = @(
                     "#Software: Pode $($PodeContext.Server.Version)"
                     "#Version: $($W3CInfo.Version)"
-                    "#Date: $([datetime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))"
+                    "#Date: $([datetime]::Now.ToString('yyyy-MM-dd HH:mm:ss', [cultureinfo]::InvariantCulture))"
                     "#Fields: $($W3CInfo.Fields.FieldName -join ' ')"
                 )
             }
@@ -2397,7 +2397,7 @@ function New-PodeLogDatadogMethod {
                     message   = $item.Data
                     hostname  = $PodeContext.Server.ComputerName
                     status    = ConvertTo-PodeDatadogLevel -Level $item.Event.Level
-                    timestamp = $item.Event.Timestamp.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                    timestamp = $item.Event.Timestamp.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [cultureinfo]::InvariantCulture)
                 }
 
                 # get any overrides for this method
@@ -3232,12 +3232,12 @@ function ConvertTo-PodeSyslog {
         # build message based on format
         switch ($Format) {
             'RFC3164' {
-                $strTimestamp = $Timestamp.ToString('MMM dd HH:mm:ss')
+                $strTimestamp = $Timestamp.ToString('MMM dd HH:mm:ss', [cultureinfo]::InvariantCulture)
                 $result = "<$($priority)>$($strTimestamp) $($PodeContext.Server.ComputerName) $($AppName)[$($processId)]: $($Message)"
             }
 
             'RFC5424' {
-                $strTimestamp = $Timestamp.ToString('yyyy-MM-ddTHH:mm:ss.fffK')
+                $strTimestamp = $Timestamp.ToString('yyyy-MM-ddTHH:mm:ss.fffK', [cultureinfo]::InvariantCulture)
 
                 $strTags = '-'
                 if ($Tags.Count -gt 0) {

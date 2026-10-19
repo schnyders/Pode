@@ -239,7 +239,7 @@ InModuleScope -ModuleName 'Pode' {
 
         It 'Converts a log item to RFC3164 syslog format' {
             $now = [datetime]::UtcNow
-            $strNow = $now.ToString('MMM dd HH:mm:ss')
+            $strNow = $now.ToString('MMM dd HH:mm:ss', [cultureinfo]::InvariantCulture)
             $processId = [System.Diagnostics.Process]::GetCurrentProcess().Id
 
             $msg = ConvertTo-PodeSyslog -Message 'example' -Level 'Error' -Timestamp $now -Format 'RFC3164'
@@ -248,7 +248,7 @@ InModuleScope -ModuleName 'Pode' {
 
         It 'Converts a log item to RFC3164 syslog format, with custom AppName' {
             $now = [datetime]::UtcNow
-            $strNow = $now.ToString('MMM dd HH:mm:ss')
+            $strNow = $now.ToString('MMM dd HH:mm:ss', [cultureinfo]::InvariantCulture)
             $processId = [System.Diagnostics.Process]::GetCurrentProcess().Id
 
             $msg = ConvertTo-PodeSyslog -Message 'example' -Level 'Error' -Timestamp $now -Format 'RFC3164' -AppName 'CustomApp'
@@ -257,7 +257,7 @@ InModuleScope -ModuleName 'Pode' {
 
         It 'Converts a log item to RFC3164 syslog format, with Facility' {
             $now = [datetime]::UtcNow
-            $strNow = $now.ToString('MMM dd HH:mm:ss')
+            $strNow = $now.ToString('MMM dd HH:mm:ss', [cultureinfo]::InvariantCulture)
             $processId = [System.Diagnostics.Process]::GetCurrentProcess().Id
 
             $msg = ConvertTo-PodeSyslog -Message 'example' -Level 'Error' -Timestamp $now -Format 'RFC3164' -Facility 19

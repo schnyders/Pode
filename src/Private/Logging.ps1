@@ -93,7 +93,7 @@ function Get-PodeLoggingFileMethod {
                     }
 
                     # current date
-                    $date = [DateTime]::Now.ToString('yyyy-MM-dd')
+                    $date = [DateTime]::Now.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
 
                     # do we need to reset the fileId?
                     if ($method.Arguments.Date -ine $date) {
@@ -535,7 +535,7 @@ function New-PodeLogAzureWorkspaceMethod {
                 $evt = @{
                     Data      = $item.Data
                     Level     = $item.Event.Level
-                    Timestamp = $item.Event.Timestamp.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                    Timestamp = $item.Event.Timestamp.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [cultureinfo]::InvariantCulture)
                 }
 
                 # get any overrides for this method
@@ -667,7 +667,7 @@ function New-PodeLogAzureDataCollectionMethod {
                 $evt = @{
                     Data          = $item.Data
                     Level         = $item.Event.Level
-                    TimeGenerated = $item.Event.Timestamp.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                    TimeGenerated = $item.Event.Timestamp.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [cultureinfo]::InvariantCulture)
                 }
 
                 # get any overrides for this method
@@ -869,7 +869,7 @@ function Get-PodeLoggingInbuiltSerialiseType {
                     $ip = Protect-PodeLogRequestItem -Value $data.Request.Host
                     $identifier = Protect-PodeLogRequestItem -Value $data.Request.Identifier
                     $user = Protect-PodeLogRequestItem -Value $data.Request.User
-                    $date = $data.Date.ToString('dd/MMM/yyyy:HH:mm:ss zzz')
+                    $date = $data.Date.ToString('dd/MMM/yyyy:HH:mm:ss zzz', [cultureinfo]::InvariantCulture)
                     $statusCode = Protect-PodeLogRequestItem -Value $data.Response.Status.Code
                     $size = Protect-PodeLogRequestItem -Value $data.Response.Size
 
@@ -895,8 +895,8 @@ function Get-PodeLoggingInbuiltSerialiseType {
 
                         'Standard' {
                             switch ($field.FieldName) {
-                                'date' { $data.Date.ToString('yyyy-MM-dd') }
-                                'time' { $data.Date.ToString('HH:mm:ss') }
+                                'date' { $data.Date.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture) }
+                                'time' { $data.Date.ToString('HH:mm:ss', [cultureinfo]::InvariantCulture) }
                                 'c-ip' { $data.Request.Host }
                                 'cs-username' { $data.Request.User }
                                 's-ip' { $data.Server.IP }
@@ -997,7 +997,7 @@ function Get-PodeLoggingInbuiltType {
                 )
 
                 return [ordered]@{
-                    Date       = $logEvent.Data.Date.ToString('yyyy-MM-dd HH:mm:ss')
+                    Date       = $logEvent.Data.Date.ToString('yyyy-MM-dd HH:mm:ss', [cultureinfo]::InvariantCulture)
                     Level      = $logEvent.Data.Level
                     ThreadId   = $logEvent.Data.ThreadId
                     ContextId  = $logEvent.Data.ContextId
