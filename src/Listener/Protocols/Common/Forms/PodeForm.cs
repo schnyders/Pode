@@ -127,8 +127,9 @@ namespace Pode.Protocols.Common.Forms
                 // is this just a regular data field?
                 if (!fields.TryGetValue("filename", out string filenameField) || string.IsNullOrWhiteSpace(filenameField))
                 {
-                    // add the data item as name=value
-                    form.Data.Add(new PodeFormData(fields["name"], GetLineString(lines[currentLineIndex], contentEncoding)));
+                    // add the data item as name=value - the value is every line up to the next boundary
+                    var valueBytes = GetSectionBytes(lines, currentLineIndex, boundaryLineIndexes[i + 1] - 1);
+                    form.Data.Add(new PodeFormData(fields["name"], contentEncoding.GetString(valueBytes)));
                 }
 
                 // otherwise it's a file field
@@ -149,27 +150,7 @@ namespace Pode.Protocols.Common.Forms
                     }
 
                     // parse the file contents, and create a stream for the payload
-                    var fileBytesLength = 0;
-                    var stream = new MemoryStream();
-
-                    for (var j = currentLineIndex; j <= (boundaryLineIndexes[i + 1] - 1); j++)
-                    {
-                        fileBytesLength = lines[j].Length;
-                        if (j == (boundaryLineIndexes[i + 1] - 1))
-                        {
-                            if (lines[j][fileBytesLength - 1] == PodeHelpers.NEW_LINE_BYTE)
-                            {
-                                fileBytesLength--;
-                            }
-
-                            if (lines[j][fileBytesLength - 1] == PodeHelpers.CARRIAGE_RETURN_BYTE)
-                            {
-                                fileBytesLength--;
-                            }
-                        }
-
-                        stream.Write(lines[j], 0, fileBytesLength);
-                    }
+                    var stream = new MemoryStream(GetSectionBytes(lines, currentLineIndex, boundaryLineIndexes[i + 1] - 1));
 
                     // add a file item for filename=stream [+name/content-type]
                     form.Files.Add(new PodeFormFile(filenameField, stream, fields["name"], headers["Content-Type"].Trim()));
@@ -177,6 +158,43 @@ namespace Pode.Protocols.Common.Forms
             }
 
             return form;
+        }
+
+        /// <summary>
+        /// Gets the bytes of a multipart section's content, from the start line up to and including the end line,
+        /// without the CRLF that precedes the next boundary.
+        /// </summary>
+        /// <param name="lines">The lines of the multipart body.</param>
+        /// <param name="startIndex">The index of the content's first line.</param>
+        /// <param name="endIndex">The index of the content's last line, just before the next boundary.</param>
+        /// <returns>The content's bytes.</returns>
+        private static byte[] GetSectionBytes(List<byte[]> lines, int startIndex, int endIndex)
+        {
+            using (var stream = new MemoryStream())
+            {
+                for (var j = startIndex; j <= endIndex; j++)
+                {
+                    var length = lines[j].Length;
+
+                    // remove the CRLF before the next boundary
+                    if (j == endIndex)
+                    {
+                        if ((length > 0) && (lines[j][length - 1] == PodeHelpers.NEW_LINE_BYTE))
+                        {
+                            length--;
+                        }
+
+                        if ((length > 0) && (lines[j][length - 1] == PodeHelpers.CARRIAGE_RETURN_BYTE))
+                        {
+                            length--;
+                        }
+                    }
+
+                    stream.Write(lines[j], 0, length);
+                }
+
+                return stream.ToArray();
+            }
         }
 
         private static string GetLineString(byte[] bytes, Encoding contentEncoding)
