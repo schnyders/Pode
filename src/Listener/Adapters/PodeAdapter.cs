@@ -18,8 +18,8 @@ namespace Pode.Adapters
             PodeHelpers.SetLogger(logger);
 
             CancellationToken = cancellationToken == default
-                ? cancellationToken
-                : new CancellationTokenSource().Token;
+                ? new CancellationTokenSource().Token
+                : cancellationToken;
 
             IsDisposed = false;
         }
