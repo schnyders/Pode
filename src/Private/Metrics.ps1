@@ -54,9 +54,11 @@ function Update-PodeServerRequestMetric {
         $metrics += $WebEvent.Route.Metrics.Requests
     }
 
-    # Increment the request metrics and status code counts
+    # Increment the request metrics and status code counts - this runs for every request, so the lock is taken
+    # directly rather than via Lock-PodeObject (which locks the same SyncRoot, but is far slower)
     foreach ($metric in $metrics) {
-        Lock-PodeObject -Object $metric -ScriptBlock {
+        [System.Threading.Monitor]::Enter($metric.SyncRoot)
+        try {
             $metric.Total++
 
             if (!$metric.StatusCodes.ContainsKey($status)) {
@@ -64,6 +66,9 @@ function Update-PodeServerRequestMetric {
             }
 
             $metric.StatusCodes[$status]++
+        }
+        finally {
+            [System.Threading.Monitor]::Exit($metric.SyncRoot)
         }
     }
 }
@@ -118,10 +123,15 @@ function Update-PodeServerSignalMetric {
         $metrics += $SignalEvent.Route.Metrics.Requests
     }
 
-    # increment the request metrics
+    # increment the request metrics - this runs for every signal, so the lock is taken directly rather than via
+    # Lock-PodeObject (which locks the same SyncRoot, but is far slower)
     foreach ($metric in $metrics) {
-        Lock-PodeObject -Object $metric -ScriptBlock {
+        [System.Threading.Monitor]::Enter($metric.SyncRoot)
+        try {
             $metric.Total++
+        }
+        finally {
+            [System.Threading.Monitor]::Exit($metric.SyncRoot)
         }
     }
 }
