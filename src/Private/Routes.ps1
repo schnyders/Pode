@@ -244,6 +244,11 @@ function Find-PodeStaticRoute {
                 $isDefault = $true
                 break
             }
+
+            # if no default file was found, show the folder if file browsing is enabled
+            if (!$isDefault -and $found.FileBrowser) {
+                $source = $filePath
+            }
         }
         else {
             $source = $filePath
