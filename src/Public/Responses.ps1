@@ -216,7 +216,7 @@ function Write-PodeTextResponse {
         # specify the content-type if supplied (adding utf-8 if missing)
         if (![string]::IsNullOrEmpty($ContentType)) {
             $charset = 'charset=utf-8'
-            if ($ContentType -inotcontains $charset) {
+            if ($ContentType -inotmatch ';\s*charset=') {
                 $ContentType = "$($ContentType); $($charset)"
             }
 
