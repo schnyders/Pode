@@ -1112,15 +1112,26 @@ function ConvertFrom-PodeHeaderQValue {
 
         # go through each part and check its q-value
         foreach ($part in $parts) {
-            # default of 1 if no q-value
-            if ($part.IndexOf(';q=') -eq -1) {
-                $qs[$part] = 1.0
+            # the name is before any parameters, e.g. "gzip; q=0.5"
+            $atoms = @(@($part -split ';').Trim())
+            $name = $atoms[0]
+            if ([string]::IsNullOrEmpty($name)) {
                 continue
             }
 
-            # parse for q-value
-            $atoms = @($part -isplit ';q=')
-            $qs[$atoms[0]] = [double]$atoms[1]
+            # default of 1 if no q-value, and 0 (not acceptable) if the q-value is invalid
+            $q = 1.0
+            foreach ($atom in ($atoms | Select-Object -Skip 1)) {
+                if ($atom -imatch '^q\s*=\s*(?<q>.*)$') {
+                    if (![double]::TryParse($Matches['q'], [System.Globalization.NumberStyles]::Float, [cultureinfo]::InvariantCulture, [ref]$q) -or ($q -lt 0) -or ($q -gt 1)) {
+                        $q = 0.0
+                    }
+
+                    break
+                }
+            }
+
+            $qs[$name] = $q
         }
 
         return $qs

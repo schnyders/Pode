@@ -1421,6 +1421,35 @@ InModuleScope -ModuleName 'Pode' {
             $result['deflate'] | Should -Be 0.8
             $result['identity'] | Should -Be 0
         }
+
+        It 'Returns a single value' {
+            $result = ConvertFrom-PodeHeaderQValue -Value 'gzip'
+            $result.Count | Should -Be 1
+            $result['gzip'] | Should -Be 1.0
+        }
+
+        It 'Returns values with whitespace and other parameters' {
+            $result = ConvertFrom-PodeHeaderQValue -Value 'gzip; q=0.5, br;level=1;Q = 0.3'
+            $result.Count | Should -Be 2
+
+            $result['gzip'] | Should -Be 0.5
+            $result['br'] | Should -Be 0.3
+        }
+
+        It 'Returns 0 for invalid quality values' {
+            $result = ConvertFrom-PodeHeaderQValue -Value 'gzip;q=abc,deflate;q=2,br;q=-1'
+            $result.Count | Should -Be 3
+
+            $result['gzip'] | Should -Be 0
+            $result['deflate'] | Should -Be 0
+            $result['br'] | Should -Be 0
+        }
+
+        It 'Ignores empty values' {
+            $result = ConvertFrom-PodeHeaderQValue -Value ' , gzip'
+            $result.Count | Should -Be 1
+            $result['gzip'] | Should -Be 1.0
+        }
     }
 
     Describe 'Get-PodeAcceptEncoding' {
