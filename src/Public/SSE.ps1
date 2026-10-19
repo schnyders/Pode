@@ -78,10 +78,16 @@ function ConvertTo-PodeSseConnection {
         $Force
     )
 
-    # check Accept header - unless forcing
-    if (!$Force -and ((Get-PodeHeader -Name 'Accept') -ine 'text/event-stream')) {
-        # SSE can only be configured on requests with an Accept header value of text/event-stream
-        throw ($PodeLocale.sseOnlyConfiguredOnEventStreamAcceptHeaderExceptionMessage)
+    # check Accept header contains text/event-stream - unless forcing
+    if (!$Force) {
+        $mediaTypes = @(foreach ($type in @("$(Get-PodeHeader -Name 'Accept')" -split ',')) {
+                ($type -split ';')[0].Trim()
+            })
+
+        if ($mediaTypes -inotcontains 'text/event-stream') {
+            # SSE can only be configured on requests with an Accept header value of text/event-stream
+            throw (New-PodeRequestException -StatusCode 406 -Message $PodeLocale.sseOnlyConfiguredOnEventStreamAcceptHeaderExceptionMessage)
+        }
     }
 
     # check for default scope, and set
