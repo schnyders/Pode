@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Pode.Utilities;
 using Pode.Protocols.Common.Responses;
@@ -28,7 +29,8 @@ namespace Pode.Protocols.Http
             {
                 if (string.IsNullOrWhiteSpace(_statusDesc) && Enum.IsDefined(typeof(HttpStatusCode), StatusCode))
                 {
-                    return ((HttpStatusCode)StatusCode).ToString();
+                    // split the enum's name into words, e.g. "BadRequest" => "Bad Request"
+                    return Regex.Replace(((HttpStatusCode)StatusCode).ToString(), "(?<=[a-z])(?=[A-Z])", " ");
                 }
 
                 return _statusDesc;

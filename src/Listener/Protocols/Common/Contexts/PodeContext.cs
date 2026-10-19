@@ -228,6 +228,14 @@ namespace Pode.Protocols.Common.Contexts
                 {
                     PodeHelpers.WriteErrorMessage($"Receiving request", PodeLogLevel.Verbose, this);
                     var close = await Request.Receive(ContextTimeoutToken.Token).ConfigureAwait(false);
+
+                    // if the request was aborted while receiving/parsing (e.g. an invalid HTTP method), mark the
+                    // context as errored, so the request's error status code is sent and the connection is closed
+                    if (Request.IsAborted && (State == PodeContextState.Receiving))
+                    {
+                        State = PodeContextState.Error;
+                    }
+
                     await EndReceive(close).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is IOException || ex is SocketException)
