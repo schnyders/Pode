@@ -2383,7 +2383,8 @@ function Set-PodeAuthRedirectUrl {
     )
 
     if ($UseOrigin -and ($WebEvent.Method -ieq 'get')) {
-        $null = Set-PodeCookie -Name 'pode.redirecturl' -Value $WebEvent.Request.Url.PathAndQuery
+        # encode the URL, as characters such as ';' and ',' aren't valid in a cookie's value
+        $null = Set-PodeCookie -Name 'pode.redirecturl' -Value ([uri]::EscapeDataString($WebEvent.Request.Url.PathAndQuery))
     }
 }
 
@@ -2403,6 +2404,10 @@ function Get-PodeAuthRedirectUrl {
 
     $tmpUrl = Get-PodeCookieValue -Name 'pode.redirecturl'
     Remove-PodeCookie -Name 'pode.redirecturl'
+
+    if (![string]::IsNullOrWhiteSpace($tmpUrl)) {
+        $tmpUrl = [uri]::UnescapeDataString($tmpUrl)
+    }
 
     if (![string]::IsNullOrWhiteSpace($tmpUrl)) {
         $Url = $tmpUrl
