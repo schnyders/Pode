@@ -48,8 +48,15 @@ function Get-PodeAuthBasicType {
             }
         }
 
-        # validate and return user/result
+        # validate and return user/result - the decoded value must be "username:password"
         $index = $decoded.IndexOf(':')
+        if ($index -eq -1) {
+            return @{
+                Message = 'Invalid Authorization header'
+                Code    = 400
+            }
+        }
+
         $username = $decoded.Substring(0, $index)
         $password = $decoded.Substring($index + 1)
 

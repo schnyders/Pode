@@ -53,6 +53,19 @@ InModuleScope -ModuleName 'Pode' {
             $result | Should -Not -Be $null
             $result.GetType().Name | Should -Be 'ScriptBlock'
         }
+
+        It 'Returns a 400 when the decoded header has no colon' {
+            Mock Get-PodeHeader { return "Basic $([System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('nocolon')))" }
+            $result = (& (Get-PodeAuthBasicType) @{ HeaderTag = 'Basic'; Encoding = 'UTF-8' })
+            $result.Code | Should -Be 400
+        }
+
+        It 'Returns the username and password' {
+            Mock Get-PodeHeader { return "Basic $([System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('morty:pick:le')))" }
+            $result = (& (Get-PodeAuthBasicType) @{ HeaderTag = 'Basic'; Encoding = 'UTF-8' })
+            $result[0] | Should -Be 'morty'
+            $result[1] | Should -Be 'pick:le'
+        }
     }
 
     Describe 'Get-PodeAuthFormType' {
