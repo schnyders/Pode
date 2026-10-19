@@ -4,6 +4,9 @@ Pode has a Docker image that you can use to host your server, for instructions o
 
 The images use .NET SDK 10.0 with PowerShell v7.6 bundled, on either an Ubuntu Resolute (default), Alpine 3.23, or ARM32 image.
 
+!!! tip
+    The images set `DOTNET_GCgen0size=0x4000000` (except ARM32), which makes Pode handle considerably more requests. See [Performance](../Performance) for more details, and other GC settings.
+
 ## Images
 
 !!! info
